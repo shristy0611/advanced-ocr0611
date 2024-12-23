@@ -1,60 +1,28 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload } from 'lucide-react';
+import { analyzeImage } from '../services/gemini';
+import { AnalysisResult } from '../services/types';
 
 interface ImageUploaderProps {
-  onImageSelect: (file: File) => void;
-  isLoading: boolean;
   language: 'en' | 'ja';
-}
-
-interface AnalysisResult {
-  // Add the properties of the AnalysisResult type here
 }
 
 const texts = {
   en: {
     dragDrop: 'Drag and drop an image here, or click to select',
-    dragActive: 'Drop the image here...',
-    supportedFormats: 'Supports PNG, JPG, JPEG, GIF, BMP'
+    analyzing: 'Analyzing image...'
   },
   ja: {
     dragDrop: '画像をドラッグ＆ドロップ、またはクリックして選択',
-    dragActive: 'ここに画像をドロップしてください...',
-    supportedFormats: '対応フォーマット：PNG、JPG、JPEG、GIF、BMP'
+    analyzing: '画像を分析中...'
   }
 };
 
-const analyzeImage = async (file: File): Promise<AnalysisResult> => {
-  // Implement the image analysis logic here
-  // For demonstration purposes, a dummy implementation is provided
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({ /* dummy analysis result */ });
-    }, 1000);
-  });
-};
-
-interface AnalysisResultProps {
-  result: AnalysisResult;
-  language: 'en' | 'ja';
-  isCached: boolean;
-}
-
-const AnalysisResult: React.FC<AnalysisResultProps> = ({ result, language, isCached }) => {
-  // Implement the AnalysisResult component here
-  // For demonstration purposes, a dummy implementation is provided
-  return (
-    <div>
-      <p>Analysis Result:</p>
-      <p>Is Cached: {isCached ? 'Yes' : 'No'}</p>
-    </div>
-  );
-};
-
-export function ImageUploader({ onImageSelect, isLoading, language }: ImageUploaderProps) {
+export function ImageUploader({ language }: ImageUploaderProps) {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [isCached, setIsCached] = useState(false);
 
   const handleImageUpload = async (file: File) => {
@@ -87,39 +55,44 @@ export function ImageUploader({ onImageSelect, isLoading, language }: ImageUploa
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp']
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
     },
-    multiple: false,
-    disabled: isLoading
+    maxFiles: 1,
+    multiple: false
   });
 
   const t = texts[language];
 
   return (
-    <div
-      {...getRootProps()}
-      className={`w-full p-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors
-        ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-400'}
-        ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-    >
-      <input {...getInputProps()} disabled={isLoading} />
-      <div className="flex flex-col items-center justify-center space-y-4">
-        <Upload className="w-12 h-12 text-gray-400" />
-        <div className="text-center space-y-2">
-          <p className="text-sm text-gray-600">
-            {isDragActive ? t.dragActive : t.dragDrop}
-          </p>
-          <p className="text-xs text-gray-500">
-            {t.supportedFormats}
+    <div className="w-full max-w-4xl mx-auto p-4">
+      <div
+        {...getRootProps()}
+        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
+          ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-500'}`}
+      >
+        <input {...getInputProps()} />
+        <div className="flex flex-col items-center justify-center gap-4">
+          <Upload className="w-12 h-12 text-gray-400" />
+          <p className="text-lg text-gray-600">
+            {isLoading ? t.analyzing : t.dragDrop}
           </p>
         </div>
       </div>
+
+      {error && (
+        <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
+
       {result && (
-        <AnalysisResult 
-          result={result} 
-          language={language}
-          isCached={isCached}
-        />
+        <div className="mt-8">
+          <AnalysisResult 
+            result={result} 
+            language={language}
+            isCached={isCached}
+          />
+        </div>
       )}
     </div>
   );

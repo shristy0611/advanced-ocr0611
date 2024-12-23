@@ -15,10 +15,12 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [language, setLanguage] = useState<Language>('en');
+  const [hasSelectedLanguage, setHasSelectedLanguage] = useState(false);
 
   const handleLanguageSelect = (selectedLanguage: Language, name: string) => {
     setLanguage(selectedLanguage);
     setUserName(name);
+    setHasSelectedLanguage(true);
     // Set the API language immediately when user selects language
     setAPILanguage(selectedLanguage);
   };
@@ -45,8 +47,14 @@ function App() {
     }
   };
 
-  if (!userName) {
-    return <WelcomePage onLanguageSelect={handleLanguageSelect} />;
+  if (!hasSelectedLanguage) {
+    return (
+      <WelcomePage
+        onLanguageSelect={(lang, name) => {
+          handleLanguageSelect(lang, name);
+        }}
+      />
+    );
   }
 
   const texts = {
