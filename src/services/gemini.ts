@@ -79,7 +79,11 @@ const validateAndSanitizeResult = (result: any): AnalysisResult => {
         ? result.graphs.map(item => String(item).trim()).filter(Boolean)
         : [],
       objects: Array.isArray(result.objects)
-        ? result.objects.map(item => String(item).trim()).filter(Boolean)
+        ? result.objects.map(item => {
+            if (typeof item === 'string') return item.trim();
+            if (typeof item === 'object' && item !== null) return JSON.stringify(item);
+            return String(item).trim();
+          }).filter(Boolean)
         : [],
       analysis: Array.isArray(result.analysis)
         ? result.analysis.map(item => String(item).trim()).filter(Boolean)

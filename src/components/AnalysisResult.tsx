@@ -90,17 +90,24 @@ export function AnalysisResult({ result, language }: AnalysisResultProps) {
       )}
 
       {/* Objects */}
-      {result.objects.length > 0 && (
+      {result.objects && result.objects.length > 0 && (
         <div className="bg-white rounded-lg p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <Package className="w-5 h-5 text-blue-500" />
             <h3 className="text-lg font-semibold">{t.objects}</h3>
           </div>
-          <ul className="list-disc pl-5 space-y-2">
-            {result.objects.map((object, index) => (
-              <li key={index} className="text-gray-700">{object}</li>
-            ))}
-          </ul>
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-2">
+              {language === 'ja' ? '検出されたオブジェクト' : 'Detected Objects'}
+            </h3>
+            <ul className="list-disc pl-5">
+              {result.objects.map((obj, index) => (
+                <li key={index} className="mb-1">
+                  {typeof obj === 'string' ? obj : JSON.stringify(obj)}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 
