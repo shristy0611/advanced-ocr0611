@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload } from 'lucide-react';
 
@@ -6,6 +6,10 @@ interface ImageUploaderProps {
   onImageSelect: (file: File) => void;
   isLoading: boolean;
   language: 'en' | 'ja';
+}
+
+interface AnalysisResult {
+  // Add the properties of the AnalysisResult type here
 }
 
 const texts = {
@@ -21,12 +25,64 @@ const texts = {
   }
 };
 
+const analyzeImage = async (file: File): Promise<AnalysisResult> => {
+  // Implement the image analysis logic here
+  // For demonstration purposes, a dummy implementation is provided
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({ /* dummy analysis result */ });
+    }, 1000);
+  });
+};
+
+interface AnalysisResultProps {
+  result: AnalysisResult;
+  language: 'en' | 'ja';
+  isCached: boolean;
+}
+
+const AnalysisResult: React.FC<AnalysisResultProps> = ({ result, language, isCached }) => {
+  // Implement the AnalysisResult component here
+  // For demonstration purposes, a dummy implementation is provided
+  return (
+    <div>
+      <p>Analysis Result:</p>
+      <p>Is Cached: {isCached ? 'Yes' : 'No'}</p>
+    </div>
+  );
+};
+
 export function ImageUploader({ onImageSelect, isLoading, language }: ImageUploaderProps) {
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isCached, setIsCached] = useState(false);
+
+  const handleImageUpload = async (file: File) => {
+    setError(null);
+    setIsLoading(true);
+    setResult(null);
+    setIsCached(false);
+
+    try {
+      const startTime = Date.now();
+      const result = await analyzeImage(file);
+      const endTime = Date.now();
+      
+      // If the response was too fast, it was probably cached
+      setIsCached(endTime - startTime < 1000);
+      setResult(result);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles[0]) {
-      onImageSelect(acceptedFiles[0]);
+      handleImageUpload(acceptedFiles[0]);
     }
-  }, [onImageSelect]);
+  }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -58,6 +114,13 @@ export function ImageUploader({ onImageSelect, isLoading, language }: ImageUploa
           </p>
         </div>
       </div>
+      {result && (
+        <AnalysisResult 
+          result={result} 
+          language={language}
+          isCached={isCached}
+        />
+      )}
     </div>
   );
 }

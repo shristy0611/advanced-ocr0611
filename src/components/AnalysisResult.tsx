@@ -5,6 +5,7 @@ import type { AnalysisResult as AnalysisResultType } from '../services/types';
 interface AnalysisResultProps {
   result: AnalysisResultType | null;
   language: 'en' | 'ja';
+  isCached?: boolean;
 }
 
 const sectionTitles = {
@@ -26,7 +27,7 @@ const sectionTitles = {
   }
 };
 
-export function AnalysisResult({ result, language }: AnalysisResultProps) {
+export function AnalysisResult({ result, language, isCached }: AnalysisResultProps) {
   if (!result) return null;
 
   const t = sectionTitles[language];
@@ -59,6 +60,20 @@ export function AnalysisResult({ result, language }: AnalysisResultProps) {
 
   return (
     <div className="space-y-6 w-full">
+      {/* Cache Indicator */}
+      {isCached && (
+        <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-lg flex items-center gap-2">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>
+            {language === 'ja' 
+              ? 'キャッシュされた結果を表示しています'
+              : 'Showing cached results'}
+          </span>
+        </div>
+      )}
+
       {/* Description */}
       {result.description && (
         <div className="bg-white rounded-lg p-6 shadow-sm">

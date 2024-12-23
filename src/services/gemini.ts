@@ -4,6 +4,7 @@ import { validateImageFile, ValidationError } from './validation';
 import { CONFIG, validateApiKey } from './config';
 import { ANALYSIS_PROMPT, ANALYSIS_PROMPT_JA } from './prompts';
 import type { AnalysisResult } from './types';
+import { calculateImageHash, getCachedResult, setCachedResult } from './cache';
 
 validateApiKey();
 
@@ -162,98 +163,73 @@ const validateLanguage = (result: AnalysisResult): void => {
 };
 
 export async function analyzeImage(imageFile: File): Promise<AnalysisResult> {
-  const maxRetries = 3;
-  let lastError: Error | null = null;
+  try {
+    validateImageFile(imageFile);
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      validateImageFile(imageFile);
-
-      const model = genAI.getGenerativeModel({ 
-        model: CONFIG.MODEL_NAME,
-        safetySettings,
-        generationConfig: {
-          temperature: 0.1,  // Keep temperature low for consistent output
-          topK: 16,
-          topP: 0.95,
-          maxOutputTokens: 2048,
-        },
-      });
-
-      const imagePart = await fileToGenerativePart(imageFile);
-      const prompt = currentLanguage === 'ja' ? ANALYSIS_PROMPT_JA : ANALYSIS_PROMPT;
-      
-      console.log(`Attempt ${attempt} - Analyzing image...`);
-      
-      const result = await model.generateContent([
-        { text: prompt },
-        imagePart
-      ]);
-
-      const response = result.response;
-      const text = response.text();
-      
-      if (!text) {
-        console.warn('Empty response received');
-        throw new Error('Empty response from API');
-      }
-
-      console.log(`Attempt ${attempt} - Raw response:`, text);
-
-      try {
-        // Try direct JSON parsing first
-        const jsonResponse = JSON.parse(text);
-        const sanitizedResult = validateAndSanitizeResult(jsonResponse);
-        
-        // Check if we got meaningful content
-        const hasContent = 
-          sanitizedResult.description || 
-          sanitizedResult.text || 
-          sanitizedResult.tables.length > 0 || 
-          sanitizedResult.objects.length > 0;
-
-        if (!hasContent) {
-          console.warn('No meaningful content in response');
-          throw new Error('Empty content');
-        }
-
-        return sanitizedResult;
-      } catch (jsonError) {
-        console.warn('Direct JSON parsing failed:', jsonError);
-
-        // Try extracting JSON from text
-        const extractedJson = extractJsonFromText(text);
-        const jsonResponse = JSON.parse(extractedJson);
-        const sanitizedResult = validateAndSanitizeResult(jsonResponse);
-
-        // Check content again
-        const hasContent = 
-          sanitizedResult.description || 
-          sanitizedResult.text || 
-          sanitizedResult.tables.length > 0 || 
-          sanitizedResult.objects.length > 0;
-
-        if (!hasContent) {
-          console.warn('No meaningful content in extracted JSON');
-          throw new Error('Empty content');
-        }
-
-        return sanitizedResult;
-      }
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`Attempt ${attempt} failed:`, error);
-      
-      if (attempt === maxRetries) {
-        throw new Error(currentLanguage === 'ja'
-          ? '画像の分析に失敗しました。もう一度お試しください。'
-          : 'Image analysis failed. Please try again.');
-      }
-      
-      // Wait before retry, increasing delay with each attempt
-      await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+    // Calculate image hash
+    const imageHash = await calculateImageHash(imageFile);
+    
+    // Check cache first
+    const cachedResult = getCachedResult(imageHash, currentLanguage);
+    if (cachedResult) {
+      console.log('Using cached result for image');
+      return cachedResult;
     }
-  }
 
-  throw lastError || new Error('Unexpected error during analysis');
+    console.log('No cache found, analyzing image...');
+    
+    const model = genAI.getGenerativeModel({ 
+      model: CONFIG.MODEL_NAME,
+      safetySettings,
+      generationConfig: {
+        temperature: 0.1,
+        topK: 16,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+      },
+    });
+
+    const imagePart = await fileToGenerativePart(imageFile);
+    const prompt = currentLanguage === 'ja' ? ANALYSIS_PROMPT_JA : ANALYSIS_PROMPT;
+    
+    const result = await model.generateContent([
+      { text: prompt },
+      imagePart
+    ]);
+
+    const response = result.response;
+    const text = response.text();
+    
+    if (!text) {
+      throw new Error('Empty response from API');
+    }
+
+    try {
+      // Try direct JSON parsing first
+      const jsonResponse = JSON.parse(text);
+      const sanitizedResult = validateAndSanitizeResult(jsonResponse);
+      
+      // Cache the result before returning
+      setCachedResult(imageHash, sanitizedResult, currentLanguage);
+      
+      return sanitizedResult;
+    } catch (jsonError) {
+      console.warn('Direct JSON parsing failed:', jsonError);
+
+      // Try extracting JSON from text
+      const extractedJson = extractJsonFromText(text);
+      const jsonResponse = JSON.parse(extractedJson);
+      const sanitizedResult = validateAndSanitizeResult(jsonResponse);
+
+      // Cache the result before returning
+      setCachedResult(imageHash, sanitizedResult, currentLanguage);
+
+      return sanitizedResult;
+    }
+  } catch (error) {
+    console.error('Error analyzing image:', error);
+    throw new Error(currentLanguage === 'ja'
+      ? '画像の分析に失敗しました。もう一度お試しください。'
+      : 'Image analysis failed. Please try again.');
+  }
 }
