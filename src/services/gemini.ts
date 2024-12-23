@@ -80,9 +80,21 @@ const validateAndSanitizeResult = (result: any): AnalysisResult => {
         : [],
       objects: Array.isArray(result.objects)
         ? result.objects.map(item => {
-            if (typeof item === 'string') return item.trim();
-            if (typeof item === 'object' && item !== null) return JSON.stringify(item);
-            return String(item).trim();
+            try {
+              if (typeof item === 'string') {
+                // Try to parse if it looks like JSON
+                if (item.trim().startsWith('{')) {
+                  return item.trim();
+                }
+                return item.trim();
+              }
+              if (typeof item === 'object' && item !== null) {
+                return JSON.stringify(item);
+              }
+              return String(item).trim();
+            } catch (e) {
+              return String(item).trim();
+            }
           }).filter(Boolean)
         : [],
       analysis: Array.isArray(result.analysis)

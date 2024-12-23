@@ -32,17 +32,20 @@ export function AnalysisResult({ result, language }: AnalysisResultProps) {
   const t = sectionTitles[language];
 
   const formatObject = (obj: any): string => {
-    if (typeof obj === 'string') return obj;
     try {
+      // If it's already a string, try to parse it as JSON
       const parsed = typeof obj === 'string' ? JSON.parse(obj) : obj;
-      if (language === 'ja') {
-        // Format Japanese objects nicely
-        if (parsed.name || parsed.price) {
-          return `${parsed.name || ''} ${parsed.price || ''}`.trim();
+      
+      if (language === 'ja' && parsed && typeof parsed === 'object') {
+        if (parsed.name && parsed.price) {
+          // Convert $ to ¥ for Japanese display
+          const price = parsed.price.replace('$', '¥');
+          return `${parsed.name} ${price}`;
         }
       }
-      return JSON.stringify(parsed, null, 2);
+      return typeof obj === 'string' ? obj : JSON.stringify(parsed);
     } catch {
+      // If parsing fails, return the original string
       return String(obj);
     }
   };
@@ -50,13 +53,15 @@ export function AnalysisResult({ result, language }: AnalysisResultProps) {
   return (
     <div className="space-y-6 w-full">
       {/* Description */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <Search className="w-5 h-5 text-blue-500" />
-          <h3 className="text-lg font-semibold">{t.description}</h3>
+      {result.description && (
+        <div className="bg-white rounded-lg p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Search className="w-5 h-5 text-blue-500" />
+            <h3 className="text-lg font-semibold">{t.description}</h3>
+          </div>
+          <p className="text-gray-700 whitespace-pre-wrap">{result.description}</p>
         </div>
-        <p className="text-gray-700 whitespace-pre-wrap">{result.description}</p>
-      </div>
+      )}
 
       {/* Text Content */}
       <div className="bg-white rounded-lg p-6 shadow-sm">
