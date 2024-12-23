@@ -31,6 +31,22 @@ export function AnalysisResult({ result, language }: AnalysisResultProps) {
 
   const t = sectionTitles[language];
 
+  const formatObject = (obj: any): string => {
+    if (typeof obj === 'string') return obj;
+    try {
+      const parsed = typeof obj === 'string' ? JSON.parse(obj) : obj;
+      if (language === 'ja') {
+        // Format Japanese objects nicely
+        if (parsed.name || parsed.price) {
+          return `${parsed.name || ''} ${parsed.price || ''}`.trim();
+        }
+      }
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return String(obj);
+    }
+  };
+
   return (
     <div className="space-y-6 w-full">
       {/* Description */}
@@ -94,20 +110,17 @@ export function AnalysisResult({ result, language }: AnalysisResultProps) {
         <div className="bg-white rounded-lg p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <Package className="w-5 h-5 text-blue-500" />
-            <h3 className="text-lg font-semibold">{t.objects}</h3>
-          </div>
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2">
+            <h2 className="text-xl font-semibold">
               {language === 'ja' ? '検出されたオブジェクト' : 'Detected Objects'}
-            </h3>
-            <ul className="list-disc pl-5">
-              {result.objects.map((obj, index) => (
-                <li key={index} className="mb-1">
-                  {typeof obj === 'string' ? obj : JSON.stringify(obj)}
-                </li>
-              ))}
-            </ul>
+            </h2>
           </div>
+          <ul className="list-disc pl-5 space-y-2">
+            {result.objects.map((obj, index) => (
+              <li key={index} className="text-gray-700">
+                {formatObject(obj)}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
