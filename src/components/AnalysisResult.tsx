@@ -37,10 +37,17 @@ export function AnalysisResult({ result, language }: AnalysisResultProps) {
       const parsed = typeof obj === 'string' ? JSON.parse(obj) : obj;
       
       if (language === 'ja' && parsed && typeof parsed === 'object') {
-        if (parsed.name && parsed.price) {
-          // Convert $ to ¥ for Japanese display
-          const price = parsed.price.replace('$', '¥');
-          return `${parsed.name} ${price}`;
+        if (parsed.name) {
+          // If there's a description, add it in a smaller font
+          if (parsed.description) {
+            return parsed.name;  // Only show the name for cleaner display
+          }
+          // If there's a price, show it
+          if (parsed.price) {
+            const price = parsed.price.replace('$', '¥');
+            return `${parsed.name} ${price}`;
+          }
+          return parsed.name;
         }
       }
       return typeof obj === 'string' ? obj : JSON.stringify(parsed);
@@ -120,11 +127,27 @@ export function AnalysisResult({ result, language }: AnalysisResultProps) {
             </h2>
           </div>
           <ul className="list-disc pl-5 space-y-2">
-            {result.objects.map((obj, index) => (
-              <li key={index} className="text-gray-700">
-                {formatObject(obj)}
-              </li>
-            ))}
+            {result.objects.map((obj, index) => {
+              try {
+                const parsed = typeof obj === 'string' ? JSON.parse(obj) : obj;
+                return (
+                  <li key={index} className="text-gray-700">
+                    <div className="font-medium">{parsed.name}</div>
+                    {parsed.description && (
+                      <div className="text-sm text-gray-500 mt-1">
+                        {parsed.description}
+                      </div>
+                    )}
+                  </li>
+                );
+              } catch {
+                return (
+                  <li key={index} className="text-gray-700">
+                    {String(obj)}
+                  </li>
+                );
+              }
+            })}
           </ul>
         </div>
       )}
