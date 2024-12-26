@@ -94,3 +94,17 @@ function cleanupOldCache(): void {
     console.error('Error cleaning cache:', error);
   }
 }
+
+export function clearAllCache(): void {
+  try {
+    // Get all keys from localStorage that start with our prefix
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(CACHE_PREFIX)) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch (error) {
+    console.error('Error clearing cache:', error);
+  }
+}

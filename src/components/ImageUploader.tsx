@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Loader2 } from 'lucide-react';
-import { analyzeImage } from '../services/gemini';
+import { Upload, Loader2, Trash2 } from 'lucide-react';
+import { analyzeImage, clearAllCache } from '../services/gemini';
 import type { AnalysisResult as AnalysisResultType } from '../services/types';
 import { AnalysisResult } from './AnalysisResult';
 
@@ -13,12 +13,16 @@ const texts = {
   en: {
     dragDrop: 'Drag and drop an image here, or click to select',
     analyzing: 'Analyzing image...',
-    error: 'Error occurred while analyzing the image'
+    error: 'Error occurred while analyzing the image',
+    clearCache: 'Clear Cache',
+    cacheCleared: 'Cache cleared successfully'
   },
   ja: {
     dragDrop: '画像をドラッグ＆ドロップ、またはクリックして選択',
     analyzing: '画像を分析中...',
-    error: '画像の分析中にエラーが発生しました'
+    error: '画像の分析中にエラーが発生しました',
+    clearCache: 'キャッシュを削除',
+    cacheCleared: 'キャッシュを削除しました'
   }
 };
 
@@ -28,6 +32,13 @@ export function ImageUploader({ language }: ImageUploaderProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isCached, setIsCached] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showCacheClearedMessage, setShowCacheClearedMessage] = useState(false);
+
+  const handleClearCache = () => {
+    clearAllCache();
+    setShowCacheClearedMessage(true);
+    setTimeout(() => setShowCacheClearedMessage(false), 3000); // Hide message after 3 seconds
+  };
 
   const handleImageUpload = async (file: File) => {
     setError(null);
@@ -52,7 +63,7 @@ export function ImageUploader({ language }: ImageUploaderProps) {
   };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles[0]) {
+    if (acceptedFiles.length > 0) {
       handleImageUpload(acceptedFiles[0]);
     }
   }, []);
@@ -62,55 +73,77 @@ export function ImageUploader({ language }: ImageUploaderProps) {
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
     },
-    maxFiles: 1,
-    multiple: false
+    maxFiles: 1
   });
 
   const t = texts[language];
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-4xl mx-auto p-4">
+      {/* Clear Cache Button */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={handleClearCache}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+          {t.clearCache}
+        </button>
+      </div>
+
+      {/* Cache Cleared Message */}
+      {showCacheClearedMessage && (
+        <div className="mb-4 p-4 bg-green-50 text-green-700 rounded-lg text-center">
+          {t.cacheCleared}
+        </div>
+      )}
+
+      {/* Image Upload Area */}
       <div
         {...getRootProps()}
         className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-          ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-500'}
-          ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}`}
       >
-        <input {...getInputProps()} disabled={isLoading} />
-        <div className="flex flex-col items-center justify-center gap-4">
-          {isLoading ? (
-            <Loader2 className="w-12 h-12 text-gray-400 animate-spin" />
-          ) : (
-            <Upload className="w-12 h-12 text-gray-400" />
-          )}
-          <p className="text-lg text-gray-600">
-            {isLoading ? t.analyzing : t.dragDrop}
-          </p>
+        <input {...getInputProps()} />
+        <div className="flex flex-col items-center gap-4">
+          <Upload className={`w-12 h-12 ${isDragActive ? 'text-blue-500' : 'text-gray-400'}`} />
+          <p className="text-gray-600">{t.dragDrop}</p>
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="mt-8 flex justify-center">
+          <div className="flex items-center gap-2 text-blue-600">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>{t.analyzing}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
       {error && (
-        <div className="p-4 bg-red-50 text-red-700 rounded-lg">
+        <div className="mt-8 p-4 bg-red-50 text-red-700 rounded-lg">
           {error}
         </div>
       )}
 
+      {/* Selected Image Preview */}
       {selectedImage && !isLoading && !error && (
-        <div className="bg-white p-6 rounded-lg shadow-sm">
+        <div className="mt-8">
           <img
             src={selectedImage}
-            alt="Uploaded"
-            className="max-h-96 mx-auto object-contain"
+            alt="Selected"
+            className="max-h-[300px] mx-auto rounded-lg shadow-lg"
           />
         </div>
       )}
 
-      {result && (
-        <AnalysisResult 
-          result={result} 
-          language={language}
-          isCached={isCached}
-        />
+      {/* Analysis Result */}
+      {result && !isLoading && (
+        <div className="mt-8">
+          <AnalysisResult result={result} language={language} isCached={isCached} />
+        </div>
       )}
     </div>
   );

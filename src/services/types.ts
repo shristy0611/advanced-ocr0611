@@ -1,9 +1,20 @@
+export interface MenuItem {
+  name: string;
+  price: string;
+  description: string;
+  category: string;
+}
+
+export interface TableData {
+  headers: string[];
+  rows: string[][];
+}
+
 export interface AnalysisResult {
   description: string;
   text: string;
-  tables: string[][];
-  graphs: string[];
-  objects: string[];
+  menuItems: MenuItem[];
+  tables: TableData[];
   analysis: string[];
 }
 

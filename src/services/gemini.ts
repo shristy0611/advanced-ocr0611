@@ -4,7 +4,7 @@ import { validateImageFile, ValidationError } from './validation';
 import { CONFIG, validateApiKey } from './config';
 import { ANALYSIS_PROMPT, ANALYSIS_PROMPT_JA } from './prompts';
 import type { AnalysisResult } from './types';
-import { calculateImageHash, getCachedResult, setCachedResult } from './cache';
+import { calculateImageHash, getCachedResult, setCachedResult, clearAllCache } from './cache';
 
 validateApiKey();
 
@@ -20,7 +20,10 @@ const safetySettings = [
 ];
 
 export function setAPILanguage(language: 'en' | 'ja') {
-  currentLanguage = language;
+  if (currentLanguage !== language) {
+    currentLanguage = language;
+    clearAllCache(); // Clear all cached results when language changes
+  }
 }
 
 const logError = (stage: string, error: any, details?: any) => {
@@ -32,8 +35,11 @@ const logError = (stage: string, error: any, details?: any) => {
 
 const extractJsonFromText = (text: string): string => {
   try {
+    // Remove markdown code block syntax and any surrounding whitespace
+    text = text.replace(/```json\s*|\s*```/g, '').trim();
+    
     // First try to find a JSON object with our expected fields
-    const jsonRegex = /{[\s\S]*?"description"[\s\S]*?"text"[\s\S]*?"tables"[\s\S]*?"graphs"[\s\S]*?"objects"[\s\S]*?"analysis"[\s\S]*?}/;
+    const jsonRegex = /{[\s\S]*?"description"[\s\S]*?"text"[\s\S]*?"menuItems"[\s\S]*?"tables"[\s\S]*?"analysis"[\s\S]*?}/;
     const match = text.match(jsonRegex);
     if (match) return match[0];
 
@@ -54,9 +60,8 @@ const validateAndSanitizeResult = (result: any): AnalysisResult => {
   const baseResult: AnalysisResult = {
     description: '',
     text: '',
+    menuItems: [],
     tables: [],
-    graphs: [],
-    objects: [],
     analysis: []
   };
 
@@ -69,52 +74,24 @@ const validateAndSanitizeResult = (result: any): AnalysisResult => {
 
     // Safely extract and convert each field
     const sanitized: AnalysisResult = {
-      description: typeof result.description === 'string' ? result.description.trim() : '',
-      text: typeof result.text === 'string' ? result.text.trim() : '',
-      tables: Array.isArray(result.tables) 
-        ? result.tables.map(row => 
-            Array.isArray(row) ? row.map(cell => String(cell).trim()) : []
-          ).filter(row => row.length > 0)
-        : [],
-      graphs: Array.isArray(result.graphs)
-        ? result.graphs.map(item => String(item).trim()).filter(Boolean)
-        : [],
-      objects: Array.isArray(result.objects)
-        ? result.objects.map(item => {
-            try {
-              if (typeof item === 'string') {
-                // Try to parse if it looks like JSON
-                if (item.trim().startsWith('{')) {
-                  return item.trim();
-                }
-                return item.trim();
-              }
-              if (typeof item === 'object' && item !== null) {
-                return JSON.stringify(item);
-              }
-              return String(item).trim();
-            } catch (e) {
-              return String(item).trim();
-            }
-          }).filter(Boolean)
-        : [],
-      analysis: Array.isArray(result.analysis)
-        ? result.analysis.map(item => String(item).trim()).filter(Boolean)
-        : []
+      description: typeof result.description === 'string' ? result.description : '',
+      text: typeof result.text === 'string' ? result.text : '',
+      menuItems: Array.isArray(result.menuItems) ? result.menuItems.map(item => ({
+        name: typeof item?.name === 'string' ? item.name : '',
+        price: typeof item?.price === 'string' ? item.price : '',
+        description: typeof item?.description === 'string' ? item.description : '',
+        category: typeof item?.category === 'string' ? item.category : ''
+      })) : [],
+      tables: Array.isArray(result.tables) ? result.tables.map(table => ({
+        headers: Array.isArray(table?.headers) ? table.headers : [],
+        rows: Array.isArray(table?.rows) ? table.rows : []
+      })) : [],
+      analysis: Array.isArray(result.analysis) ? result.analysis.filter(item => typeof item === 'string') : []
     };
 
-    // Verify we have at least some content
-    const hasContent = 
-      sanitized.description || 
-      sanitized.text || 
-      sanitized.tables.length > 0 || 
-      sanitized.graphs.length > 0 || 
-      sanitized.objects.length > 0 || 
-      sanitized.analysis.length > 0;
-
-    return hasContent ? sanitized : baseResult;
+    return sanitized;
   } catch (error) {
-    console.error('Error sanitizing result:', error);
+    console.warn('Error sanitizing result:', error);
     return baseResult;
   }
 };
@@ -134,9 +111,8 @@ const validateLanguage = (result: AnalysisResult): void => {
       result.description,
       result.text,
       ...result.analysis,
-      ...result.objects,
-      ...result.graphs,
-      ...result.tables.flat()
+      ...result.menuItems.map(item => item.name + item.description + item.price + item.category),
+      ...result.tables.flatMap(table => table.headers.concat(table.rows.flat()))
     ].filter(Boolean);
 
     if (mainTexts.length === 0) {
@@ -233,3 +209,6 @@ export async function analyzeImage(imageFile: File): Promise<AnalysisResult> {
       : 'Image analysis failed. Please try again.');
   }
 }
+
+// Re-export clearAllCache for direct access
+export { clearAllCache } from './cache';
