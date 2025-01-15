@@ -12,7 +12,7 @@ export function validateImageFile(file: File): void {
     throw new ValidationError(`File size too large. Maximum size is ${CONFIG.MAX_FILE_SIZE / (1024 * 1024)}MB.`);
   }
 
-  if (!CONFIG.SUPPORTED_MIME_TYPES.includes(file.type)) {
+  if (!CONFIG.SUPPORTED_MIME_TYPES.includes(file.type as 'image/jpeg' | 'image/png' | 'image/webp')) {
     throw new ValidationError(
       `Invalid file type. Supported types: ${CONFIG.SUPPORTED_MIME_TYPES.join(', ')}`
     );

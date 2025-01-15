@@ -2,23 +2,23 @@ export const ANALYSIS_PROMPT = `Please analyze this image and respond in English
 Return your response in this exact JSON format, keeping all field names in English:
 
 {
-  "description": "",  // Main description
-  "text": "",        // All visible text
-  "menuItems": [     // Array of menu items with their details
+  "description": "Main description of the image",
+  "text": "All visible text from the image",
+  "menuItems": [
     {
-      "name": "",    // Item name
-      "price": "",   // Price (if available)
-      "description": "", // Description (if available)
-      "category": ""    // Category like "Dessert", "Main Course" etc.
+      "name": "Item name",
+      "price": "Item price",
+      "description": "Item description",
+      "category": "Item category"
     }
   ],
-  "tables": [        // For any tabular data, ensure each row contains related information together
+  "tables": [
     {
-      "headers": [], // Column headers
-      "rows": []     // Each row should contain related data (e.g., [item, price, description])
+      "headers": ["Column 1", "Column 2"],
+      "rows": [["Data 1", "Data 2"]]
     }
   ],
-  "analysis": []     // Key insights
+  "analysis": ["Insight 1", "Insight 2"]
 }
 
 Rules:
@@ -34,23 +34,23 @@ export const ANALYSIS_PROMPT_JA = `この画像を分析し、日本語でのみ
 以下の正確なJSON形式で応答してください。フィールド名は英語のままにしてください：
 
 {
-  "description": "",  // メインの説明
-  "text": "",        // 見えるテキストすべて
-  "menuItems": [     // メニュー項目の配列（詳細付き）
+  "description": "画像の主な説明",
+  "text": "画像から見えるテキストすべて",
+  "menuItems": [
     {
-      "name": "",    // 項目名
-      "price": "",   // 価格（存在する場合）
-      "description": "", // 説明（存在する場合）
-      "category": ""    // カテゴリ（「デザート」、「メインコース」など）
+      "name": "項目名",
+      "price": "価格",
+      "description": "説明",
+      "category": "カテゴリ"
     }
   ],
-  "tables": [        // 表形式データの場合、各行に関連情報をまとめて含める
+  "tables": [
     {
-      "headers": [], // 列見出し
-      "rows": []     // 各行は関連データを含む（例：[項目, 価格, 説明]）
+      "headers": ["列1", "列2"],
+      "rows": [["データ1", "データ2"]]
     }
   ],
-  "analysis": []     // 重要な洞察
+  "analysis": ["分析1", "分析2"]
 }
 
 ルール：

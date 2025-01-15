@@ -1,6 +1,8 @@
+type SupportedMimeType = 'image/jpeg' | 'image/png' | 'image/webp';
+
 export const CONFIG = {
   MAX_FILE_SIZE: 50 * 1024 * 1024, // 50MB
-  SUPPORTED_MIME_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
+  SUPPORTED_MIME_TYPES: ['image/jpeg', 'image/png', 'image/webp'] as SupportedMimeType[],
   API_KEY: import.meta.env.VITE_GEMINI_API_KEY,
   MODEL_NAME: 'gemini-1.5-flash'
 } as const;

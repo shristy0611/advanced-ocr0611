@@ -1,6 +1,6 @@
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { fileToGenerativePart } from './imageUtils';
-import { validateImageFile, ValidationError } from './validation';
+import { validateImageFile } from './validation';
 import { CONFIG, validateApiKey } from './config';
 import { ANALYSIS_PROMPT, ANALYSIS_PROMPT_JA } from './prompts';
 import type { AnalysisResult } from './types';
@@ -11,13 +11,6 @@ validateApiKey();
 const genAI = new GoogleGenerativeAI(CONFIG.API_KEY);
 
 let currentLanguage: 'en' | 'ja' = 'en';
-
-const safetySettings = [
-  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-];
 
 export function setAPILanguage(language: 'en' | 'ja') {
   if (currentLanguage !== language) {
@@ -76,17 +69,17 @@ const validateAndSanitizeResult = (result: any): AnalysisResult => {
     const sanitized: AnalysisResult = {
       description: typeof result.description === 'string' ? result.description : '',
       text: typeof result.text === 'string' ? result.text : '',
-      menuItems: Array.isArray(result.menuItems) ? result.menuItems.map(item => ({
+      menuItems: Array.isArray(result.menuItems) ? result.menuItems.map((item: any) => ({
         name: typeof item?.name === 'string' ? item.name : '',
         price: typeof item?.price === 'string' ? item.price : '',
         description: typeof item?.description === 'string' ? item.description : '',
         category: typeof item?.category === 'string' ? item.category : ''
       })) : [],
-      tables: Array.isArray(result.tables) ? result.tables.map(table => ({
+      tables: Array.isArray(result.tables) ? result.tables.map((table: any) => ({
         headers: Array.isArray(table?.headers) ? table.headers : [],
         rows: Array.isArray(table?.rows) ? table.rows : []
       })) : [],
-      analysis: Array.isArray(result.analysis) ? result.analysis.filter(item => typeof item === 'string') : []
+      analysis: Array.isArray(result.analysis) ? result.analysis.filter((item: any) => typeof item === 'string') : []
     };
 
     return sanitized;
@@ -154,59 +147,72 @@ export async function analyzeImage(imageFile: File): Promise<AnalysisResult> {
 
     console.log('No cache found, analyzing image...');
     
-    const model = genAI.getGenerativeModel({ 
-      model: CONFIG.MODEL_NAME,
-      safetySettings,
-      generationConfig: {
-        temperature: 0.1,
-        topK: 16,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      },
-    });
-
-    const imagePart = await fileToGenerativePart(imageFile);
-    const prompt = currentLanguage === 'ja' ? ANALYSIS_PROMPT_JA : ANALYSIS_PROMPT;
-    
-    const result = await model.generateContent([
-      { text: prompt },
-      imagePart
-    ]);
-
-    const response = result.response;
-    const text = response.text();
-    
-    if (!text) {
-      throw new Error('Empty response from API');
-    }
-
     try {
-      // Try direct JSON parsing first
-      const jsonResponse = JSON.parse(text);
-      const sanitizedResult = validateAndSanitizeResult(jsonResponse);
+      const model = genAI.getGenerativeModel({ 
+        model: CONFIG.MODEL_NAME
+      });
+
+      const imagePart = await fileToGenerativePart(imageFile);
+      const prompt = currentLanguage === 'ja' ? ANALYSIS_PROMPT_JA : ANALYSIS_PROMPT;
       
-      // Cache the result before returning
-      setCachedResult(imageHash, sanitizedResult, currentLanguage);
+      console.log('Sending request to Gemini API...');
+      const result = await model.generateContent([prompt, imagePart]);
+
+      console.log('Received response from Gemini API');
+      const response = result.response;
+      const text = response.text();
       
-      return sanitizedResult;
-    } catch (jsonError) {
-      console.warn('Direct JSON parsing failed:', jsonError);
+      console.log('Raw API Response:', text);
+      
+      if (!text) {
+        console.error('Empty response from Gemini API');
+        throw new Error(currentLanguage === 'ja'
+          ? 'APIからの応答が空でした。もう一度お試しください。'
+          : 'Empty response from API. Please try again.');
+      }
 
-      // Try extracting JSON from text
-      const extractedJson = extractJsonFromText(text);
-      const jsonResponse = JSON.parse(extractedJson);
-      const sanitizedResult = validateAndSanitizeResult(jsonResponse);
-
-      // Cache the result before returning
-      setCachedResult(imageHash, sanitizedResult, currentLanguage);
-
-      return sanitizedResult;
+      try {
+        // Try direct JSON parsing first
+        console.log('Attempting to parse response as JSON');
+        let jsonResponse;
+        try {
+          jsonResponse = JSON.parse(text);
+        } catch (parseError) {
+          console.log('Direct JSON parsing failed, attempting to extract JSON from text');
+          const extractedText = extractJsonFromText(text);
+          console.log('Extracted text:', extractedText);
+          jsonResponse = JSON.parse(extractedText);
+        }
+        
+        const sanitizedResult = validateAndSanitizeResult(jsonResponse);
+        
+        // Cache the result before returning
+        setCachedResult(imageHash, sanitizedResult, currentLanguage);
+        
+        return sanitizedResult;
+      } catch (jsonError) {
+        console.error('JSON parsing error:', jsonError);
+        console.error('Raw text that failed to parse:', text);
+        throw new Error(currentLanguage === 'ja'
+          ? 'APIからの応答を解析できませんでした。もう一度お試しください。'
+          : 'Could not parse API response. Please try again.');
+      }
+    } catch (apiError: any) {
+      console.error('Gemini API error:', apiError);
+      if (apiError.message?.includes('API key not valid')) {
+        throw new Error(currentLanguage === 'ja'
+          ? 'APIキーが無効です。APIキーを確認してください。'
+          : 'Invalid API key. Please check your API key.');
+      }
+      throw new Error(currentLanguage === 'ja'
+        ? 'Gemini APIエラー: ' + (apiError.message || 'Unknown error')
+        : 'Gemini API error: ' + (apiError.message || 'Unknown error'));
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error analyzing image:', error);
     throw new Error(currentLanguage === 'ja'
-      ? '画像の分析に失敗しました。もう一度お試しください。'
-      : 'Image analysis failed. Please try again.');
+      ? '画像の分析に失敗しました: ' + (error.message || 'もう一度お試しください。')
+      : 'Image analysis failed: ' + (error.message || 'Please try again.'));
   }
 }
 
